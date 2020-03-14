@@ -4,6 +4,25 @@
 ; Created: 3/12/2020 2:14:26 PM
 ; Author : matthewarinanta
 ;
+
+;
+;	Things "Finished":
+;			Determine which button pressed
+;			Display message, basic stuff
+;
+;
+;
+;	Things left to do:
+;			Display button count
+;			Change message to other lines
+;
+;
+;
+
+
+
+
+
 .cseg
 .org 0
 
@@ -11,11 +30,8 @@
 
 .def button_c	= r20
 .def msg_c		= r21
-.equ RIGHT	= 0x032 
-.equ UP     = 0x0C3
-.equ DOWN   = 0x17C
-.equ LEFT   = 0x22B
-.equ SELECT = 0x316
+
+
 
 
 ;Initializations
@@ -39,42 +55,36 @@
 	sts ADCSRA, r16
 	ldi r16, 0x40
 	sts ADMUX, r16
-	clr r16
 
+	ldi r16,0
+	sts BUTTON_CU, r16
+	sts BUTTON_P, r16
+
+	clr r16
 	clr r24
+
 main_loop:
-	call delay
-	call lcd_clr
-	
 	call check_button
 	cpi r24,0
 	breq main_loop
-	inc button_c
-	;call button_ini
-	;call gay
 
-	call test
-	;cpi r24,0
+checker:
+	lds r1,BUTTON_CU
+	lds r2, BUTTON_P
+	cp r1,r2
+	breq main_loop
+
+	clr r16
+	clr r17
+
+	inc button_c
+	call button_ini
+
 
 	rjmp main_loop
 
 done: jmp done
 
-gay:
-	cpi r24,1
-	brne ree
-	call lcd_clr
-	
-	rjmp ree
-
-
-test:
-	cpi r24,2
-	breq ree
-	call display_strings
-
-ree:
-	ret
 
 ;Button Initializing function
 
@@ -99,22 +109,53 @@ button_ini:
 
 	n_right:
 		nop
+
+		;ldi r16,1
+		sts BUTTON_P, r24
+		clr r24
+
 		rjmp gon
 
 	n_up:
-		call lcd_clear
+		inc msg_c
+		call display_strings
+
+		sts BUTTON_P, r24
+		clr r24
+
 		rjmp gon
 
 	n_down:
-		nop
+		dec msg_c
+		call lcd_clr
+
+		sts BUTTON_P, r24
+		clr r24
+
+
 		rjmp gon
 
 	n_left:
-		nop
+		
+
+		;call display_strings
+
+		sts BUTTON_P, r24
+		clr r24
+
+
 		rjmp gon
 
 	n_select:
-		nop
+		;call display_strings
+		;call delay_h
+
+		;call display_strings
+		;call delay_h
+
+		sts BUTTON_P, r24
+		clr r24
+
 		rjmp gon
 
 gon: 
@@ -132,17 +173,16 @@ check_button:
 
 	; wait for A2D conversion to complete
 wait:
+	
 	lds r16, ADCSRA
 	andi r16, 0x40     ; see if conversion is over by checking ADSC bit
 	brne wait          ; ADSC will be reset to 0 is finished
-
-	clr r16
 
 	; read the value available as 10 bits in ADCH0:ADCL
 	lds r16, ADCL  ;0x0
 	lds r17, ADCH  ;0x0 [32]
 
-	ldi r18, low(0x3E9)
+	ldi r18, low(0x3E9) 
 	ldi r19, high(0x3E9)
 	cp r16, r18
 	cpc r17,r19
@@ -150,14 +190,16 @@ wait:
 
 	
 	b_right:
-		ldi r18, low(0x033)
-		ldi r19, high(0x033)
+		ldi r18, low(0x032);
+		ldi r19, high(0x032)
 		cp r16, r18
 		cpc r17,r19
 
 		brsh b_up
 
 		ldi r24, 1
+		sts BUTTON_CU, r24
+
 		rjmp skip
 
 	b_up:
@@ -169,39 +211,46 @@ wait:
 		brsh b_down
 
 		ldi r24, 2
+		sts BUTTON_CU, r24
+
 		rjmp skip
 	
 	b_down:
-		ldi r18, low(0x17D)
-		ldi r19, high(0x17D)
+		ldi r18, low(0x17C)
+		ldi r19, high(0x17C)
 		cp r16, r18
 		cpc r17,r19
 
 		brsh b_left
 
 		ldi r24,3
+		sts BUTTON_CU, r24
+
 		rjmp skip
 
 	b_left:
-		ldi r18, low(0x22C)
-		ldi r19, high(0x22C)
+		ldi r18, low(0x22B)
+		ldi r19, high(0x22B)
 		cp r16, r18
 		cpc r17,r19
 
 		brsh b_select
 
 		ldi r24,4
+		sts BUTTON_CU, r24
+
 		rjmp skip
 	
 	b_select:
-		ldi r18, low(0x317)
-		ldi r19, high(0x317)
+		ldi r18, low(0x316)
+		ldi r19, high(0x316)
 		cp r16, r18
 		cpc r17,r19
 
 		brsh skip
 
 		ldi r24,5
+		sts BUTTON_CU, r24
 
 skip:	
 		ret
@@ -304,35 +353,53 @@ display_strings:
 	ret
 
 ;
-; delay function
+; delay functions
 ;
-delay:
+
+; delay for 0.5 secs
+delay_h:
+	push r18
+	push r19
 	push r20
-	push r21
-	push r22
+	
 	; Nested delay loop
-	ldi r20, 0x0F
-x1:
-		ldi r21, 0xFF
-x2:
-			ldi r22, 0xFF
-x3:
-				dec r22
-				brne x3
-			dec r21
-			brne x2
-		dec r20
-		brne x1
-	pop r22
-	pop r21
-	pop r20
+	ldi  r18, 0x29
+    ldi  r19, 0x96
+    ldi  r20, 0x80
+
+L1: dec  r20
+    brne L1
+    dec  r19
+    brne L1
+    dec  r18
+    brne L1
+
+	ret
+
+; delay for 1 secs
+delay_s:
+	push r18
+	push r19
+	push r20
+	; Nested delay loop
+	ldi  r18, 0x52
+    ldi  r19, 0x2B
+    ldi  r20, 0x00
+L2: dec  r20
+    brne L2
+    dec  r19
+    brne L2
+    dec  r18
+    brne L2
 	ret
 
 
-
-
-msg1_p:	.db "$AMD to the moon ", 0	
-msg2_p: .db "Diamond Hands", 0
+;Strings will be used
+start_S	: .db "*******************", 0
+msg1_p	:	.db "(o-_-o) (o-_-o)", 0	
+msg2_p	: .db "$AMD to the moon ", 0
+msg3_p	:	.db " ", 0	
+msg4_p	: .db " ", 0
 
 .dseg
 ;
@@ -343,6 +410,15 @@ msg2_p: .db "Diamond Hands", 0
 msg1:	.byte 50
 msg2:	.byte 50
 
+.equ msg_length = 19
+
+line1: .byte 19
+line2: .byte 19
+line3: .byte 19
+line4: .byte 19
+
+BUTTON_CU :.byte 1
+BUTTON_P :.byte 1
 
 ;
 ; Include the HD44780 LCD Driver for ATmega2560
